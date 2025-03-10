@@ -1,0 +1,46 @@
+/* 设置页面整体布局 */
+body {
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* 水平居中 */
+    justify-content: flex-start; /* 从顶部开始布局 */
+    min-height: 100vh; /* 使页面至少占满整个视口高度 */
+    margin: 0; /* 去除默认的body边距 */
+    font-family: Arial, sans-serif;
+    background-color: #f0f0f0; /* 页面背景色 */
+    padding: 20px; /* 添加内边距 */
+}
+
+/* 文本框样式 */
+#text-input {
+    width: 300px; /* 设置文本框宽度 */
+    padding: 10px; /* 内边距 */
+    font-size: 16px; /* 字体大小 */
+    border: 1px solid #ccc; /* 边框 */
+    border-radius: 5px; /* 圆角 */
+    margin-bottom: 20px; /* 与SVG容器的间距 */
+    outline: none; /* 去除聚焦时的外边框 */
+    transition: border-color 0.3s ease; /* 边框颜色过渡效果 */
+}
+
+/* 文本框聚焦时的样式 */
+#text-input:focus {
+    border-color: #007bff; /* 聚焦时边框颜色变为蓝色 */
+}
+
+
+/* SVG容器样式 */
+#svg-container {
+    position: relative; /* 相对定位 */
+    width: 400px; /* 容器宽度 */
+    height: 400px; /* 容器高度 */
+    border: 1px solid #ccc; /* 边框 */
+    background-color: white; /* 背景色 */
+    overflow: hidden; /* 防止内容超出容器 */
+}
+
+/* SVG元素样式 */
+#svg-container svg {
+    position: absolute; /* 绝对定位 */
+    transform-origin: top left; /* 缩放和偏移的基准点 */
+}
