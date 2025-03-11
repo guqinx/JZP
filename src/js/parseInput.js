@@ -13,9 +13,18 @@ function parseInput(input) {
   const MARKER = /从再作|从头再作|少息|大息|入拍|入慢|句号|再作|曲终|操终|泛起|泛止|间/;
 
   // 匹配所有可能的字符
-  const regex = new RegExp(
-  `${HUI_FINGER.source}|${XIAN_FINGER.source}|${HUI_NUMBER.source}|${FEN_NUMBER.source}|${XIAN_NUMBER.source}|${MOVE_FINGER.source}|${SPECIAL_FINGER.source}|${BOTH_FINGER.source}|${COMPLEX_FINGER.source}|${MODIFIER.source}|${MARKER.source}`,
-  'g'
+//   const regex = new RegExp(
+//   `${HUI_FINGER.source}|${XIAN_FINGER.source}|${HUI_NUMBER.source}|${FEN_NUMBER.source}|${XIAN_NUMBER.source}|${MOVE_FINGER.source}|${SPECIAL_FINGER.source}|${BOTH_FINGER.source}|${COMPLEX_FINGER.source}|${MODIFIER.source}|${MARKER.source}`,
+//   'g'
+// );
+
+// const regex = new RegExp(
+//   `${HUI_FINGER.source}|${XIAN_FINGER.source}|${HUI_NUMBER.source}|${FEN_NUMBER.source}|${XIAN_NUMBER.source}|${MOVE_FINGER.source}|${SPECIAL_FINGER.source}|${BOTH_FINGER.source}|${COMPLEX_FINGER.source}|${MODIFIER.source}|${MARKER.source}|.`,
+//   'g'
+// );
+const regex = new RegExp(
+  `${HUI_FINGER.source}|${XIAN_FINGER.source}|${HUI_NUMBER.source}|${FEN_NUMBER.source}|${XIAN_NUMBER.source}|${MOVE_FINGER.source}|${SPECIAL_FINGER.source}|${BOTH_FINGER.source}|${COMPLEX_FINGER.source}|${MODIFIER.source}|${MARKER.source}|[^\\s]`,
+  'gu'
 );
 
   // 提取所有匹配的字符
@@ -45,13 +54,4 @@ function parseInput(input) {
 export { parseInput };
 
 
-// 输入 "大指七徽六分注勾一弦"，输出为：
-// [
-//   { char: "大", type: "HUI_FINGER" },
-//   { char: "七徽", type: "HUI_NUMBER" },
-//   { char: "六分", type: "FEN_NUMBER" },
-//   { char: "注", type: "SPECIAL_FINGER" }
-//   { char: "勾", type: "XIAN_FINGER" },
-//   { char: "一弦", type: "XIAN_NUMBER" },
-// ]
 
