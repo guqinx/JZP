@@ -30,15 +30,32 @@ class jianziSymbol {
 }
 
 
-// HUI_FINGER 和 HUI_NUMBER 的组合布局
-function huiFingerPhrase(huiFinger, huiNumber) {
+// HUI_FINGER 和 HUI_NUMBER 和 FEN_NUMBER 的组合布局
+function huiFingerPhrase(huiFinger, huiNumber, fenNumber) {
   huiFinger.setLayout({ scale: 1, translateX: 0, translateY: 0 });
-  huiNumber.setLayout({ scale: 1, translateX: 0, translateY: 0 });
-  return [huiFinger, huiNumber];
+  if (fenNumber) {
+    huiNumber.setLayout({ scale: 1, translateX: 0, translateY: -30 });
+    fenNumber.setLayout({ scale: 1, translateX: 0, translateY: 30 });
+  } else {
+    huiNumber.setLayout({ scale: 1, translateX: 0, translateY: 0 });
+  }
+  return [huiFinger, huiNumber, fenNumber].filter(Boolean);
 }
 
+// XIAN_FINGER 和 XIAN_NUMBER 的组合布局
+function xianFingerPhrase(xianFinger, xianNumber) {
+  xianFinger.setLayout({ scale: 1, translateX: 0, translateY: 0 });
+  xianNumber.setLayout({ scale: 1, translateX: 0, translateY: 0 });
+  return [xianFinger, xianNumber];
+}
 
+// SPECIAL_FINGER 的布局
+function specialFingerPhrase(specialFinger) {
+  specialFinger.setLayout({ scale: 1.2, translateX: -10, translateY: 5 });
+  return [specialFinger];
+}
 
+// 处理输入
 function processInput(input) {
   const parsedInput = parseInput(input); // 使用 parseInput 函数解析输入
   const symbolObjects = parsedInput.map(item => new jianziSymbol(item.char, item.type));
@@ -46,37 +63,43 @@ function processInput(input) {
   // 分类处理
   const huiFinger = symbolObjects.find(item => item.type === "HUI_FINGER");
   const huiNumber = symbolObjects.find(item => item.type === "HUI_NUMBER");
-
- 
+  const fenNumber = symbolObjects.find(item => item.type === "FEN_NUMBER");
+  const xianFinger = symbolObjects.find(item => item.type === "XIAN_FINGER");
+  const xianNumber = symbolObjects.find(item => item.type === "XIAN_NUMBER");
+  const specialFinger = symbolObjects.find(item => item.type === "SPECIAL_FINGER");
 
   // 计算布局
-  const huiLayout = huiFinger && huiNumber ? huiFingerPhrase(huiFinger, huiNumber) : [];
+  let layoutInfo = [];
 
+  // 左手指法语句 处理 HUI_FINGER + HUI_NUMBER + FEN_NUMBER 组合
+  if (huiFinger && huiNumber) {
+    layoutInfo = layoutInfo.concat(huiFingerPhrase(huiFinger, huiNumber, fenNumber));
+  }
 
-   // 处理其他字符类型
-   const otherSymbols = symbolObjects.filter(item => 
-    item.type !== "HUI_FINGER" && 
-    item.type !== "HUI_NUMBER" && 
-    item.type !== "XIAN_FINGER" && 
-    item.type !== "XIAN_NUMBER" && 
-    item.type !== "SPECIAL_FINGER"
+  // 右手指法语句 处理 XIAN_FINGER + XIAN_NUMBER 组合
+  if (xianFinger && xianNumber) {
+    layoutInfo = layoutInfo.concat(xianFingerPhrase(xianFinger, xianNumber));
+  }
+
+  // 特殊字符 处理 SPECIAL FINGER
+
+  if (specialFinger) {
+    layoutInfo = layoutInfo.concat(specialFingerPhrase(specialFinger));
+  }
+
+  // 处理单独字符（未参与组合的字符）
+  const remainingSymbols = symbolObjects.filter(item => 
+    !layoutInfo.some(layout => layout.char === item.char)
   );
 
-  // 为其他字符设置默认布局
-  const otherLayout = otherSymbols.map(item => {
-    item.setLayout({ scale: 1, translateX: 0, translateY: 0 }); // 默认布局
-    return item.getLayout();
+  // 为单独字符设置默认布局
+  remainingSymbols.forEach(symbol => {
+    symbol.setLayout({ scale: 1, translateX: 0, translateY: 0 }); // 默认布局
+    layoutInfo.push(symbol.getLayout());
   });
 
-
-  // 合并所有布局
-  // const result = [...huiLayout, ...xianLayout, ...specialLayout].map(item => item.getLayout());
-  // return result;
-
-  const result = [...huiLayout, ...otherLayout, ].map(item => item.getLayout());
-  return result;
-
-
+  return layoutInfo;
 }
+  
 export { processInput };
 
