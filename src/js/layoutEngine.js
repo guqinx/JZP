@@ -1,20 +1,29 @@
 // src/js/layoutEngine.js
 import { LayoutCalculator } from './interfaces.js';
+import { charMap } from './charMap.js';
+import { LayoutType } from './parseInput.js';  // Add this import
+import { CharType } from './parseInput.js';  // Add this import
 
 // 创建减字符号类
 class JianziSymbol {
-  constructor(char, type) {
-    // 基础校验
-    if (!char || !type) {
-      throw new Error('必须提供char和type参数');
+  constructor(char, type, layoutType = LayoutType.BASIC) {
+    if (!char || !type || !layoutType) {
+      throw new Error('必须提供char和type参数和layoutType参数');
     }
 
     this.char = char;
     this.type = type;
-    this.x = 0; // x偏移
-    this.y = 0; // y偏移
-    this.width = containerWidth; // svg高度
-    this.height = containerHeight; // svg宽度
+    this.layoutType = layoutType;
+    this.x = 0;
+    this.y = 0;
+    this.width = CW;
+    this.height = CH;
+    this.svgFile = charMap[char]?.svgFile || null;
+  }
+
+  // 新增方法：设置 SVG 文件
+  setSvgFile(filename) {
+    this.svgFile = filename;
   }
 
   // 根据类型设置布局信息
@@ -29,67 +38,61 @@ class JianziSymbol {
   getLayout() {
     return {
       char: this.char,
+      type: this.type,
+      layoutType: this.layoutType,
       x: this.x,
       y: this.y,
       height: this.height,
       width: this.width,
+      svgFile: this.svgFile
     };
   }
 }
 
-const containerWidth = 500;
-const containerHeight = 500;
+const CW = 500;   // container的宽度
+const CH = 500;  // container的高度
 
-const LH_SIZE = 0.2; // 左手符号的大小，与容器大小的比例
-const HF_SCALE = 0.75; // HF同时出现时，需要缩小的比例
-const X_POSITION = 0.5; // 原来HF在容器内，X方向的距离，与容器宽度的比值
-const Y_POSITION = 0.2; // 原来HF在容器内，Y方向的距离，与容器宽度的比值
-const RH_SIZE = 0.6; // 右手符号的大小，与容器大小的比例
 
 // 布局引擎的具体实现
 export class MyLayoutCalculator extends LayoutCalculator {
   processInput(parsedInput) {
     console.debug('==>【解析后的输入】:', parsedInput);
 
-  // **避免空输入报错**
-  if (!parsedInput || parsedInput.length === 0) {
-    console.warn("输入为空，跳过布局计算");
-    return []; // 返回空布局
-  }
+    if (!parsedInput || parsedInput.length === 0) {
+      console.warn("输入为空，跳过布局计算");
+      return [];
+    }
 
-    const symbolObjects = parsedInput.map(item => new JianziSymbol(item.char, item.type));
-      console.debug('[创建的符号对象]:', symbolObjects);
+    const symbolObjects = parsedInput.map(item => 
+      new JianziSymbol(item.char, item.type, item.LayoutType)
+    );
 
-    // 调用布局方法
     const layoutInfo = this.determineLayoutMode(symbolObjects);
-      console.debug('[计算出的布局信息]:', layoutInfo);
-
-    // 处理未参与布局的符号（设置默认布局）
     this.setDefaultLayout(symbolObjects, layoutInfo);
-      console.debug('[默认布局信息]:', layoutInfo);
-
     return layoutInfo;
   }
-  // 依据首字输入判断布局类型
+
   determineLayoutMode(symbols) {
-    // 防御性检查
     if (!symbols || symbols.length === 0) {
-      console.warn('空符号数组，使用默认基本布局');
       return this.basicLayout(symbols || []);
     }
 
-    const firstSymbol = symbols[0]; 
-
-    // 使用switch处理布局判断和选择
-    switch (firstSymbol.type) {
-      case 'LEFT_HAND_FINGER':
+    const firstSymbol = symbols[0];
+    
+    // Use layoutType instead of type for layout determination
+    switch (firstSymbol.layoutType) {
+      case LayoutType.BASIC:
         return this.basicLayout(symbols);
-      case 'COMPLEX_FINGER':
+      case LayoutType.COMPLEX:
+      case LayoutType.COMPLEX_SUB_1:
+      case LayoutType.COMPLEX_SUB_2:
         return this.complexLayout(symbols);
-      case 'MOVE_FINGER':
+      case LayoutType.SIDE_NOTE:
         return this.sideNoteLayout(symbols);
+      case LayoutType.STANDALONE:
+        return this.specialFingerPhrase(symbols[0]);
       default:
-        console.warn(`减字谱语法错误: 首字类型不该是 ${firstSymbol.type}，使用默认基本布局`);
+        console.warn(`未知的布局类型: ${firstSymbol.layoutType}，使用默认基本布局`);
         return this.basicLayout(symbols);
     }
   }
@@ -97,34 +100,36 @@ export class MyLayoutCalculator extends LayoutCalculator {
   setDefaultLayout(symbols, layoutInfo) {
     symbols.forEach(symbol => {
       if (!layoutInfo.some(layout => layout.char === symbol.char)) {
-        symbol.setLayout({ x: 0, y: 0, width: containerWidth, height: containerHeight });
+        symbol.setLayout({ x: 0, y: 0, width: CW, height: CH });
         layoutInfo.push(symbol.getLayout());
       }
     });
   }
+
+
   // 基本式布局
   basicLayout(symbols) {
-    console.debug('[布局开始] 接收符号:', symbols);
+    // console.debug('[布局开始] 接收符号:', symbols);
 
     const layoutInfo = [];
 
     // 左手指法布局
-    const lefthandFinger = symbols.find(item => item.type === 'LEFT_HAND_FINGER');
-    const huiNumber = symbols.find(item => item.type === 'HUI_NUMBER');
-    const fenNumber = symbols.find(item => item.type === 'FEN_NUMBER');
-    if (lefthandFinger && huiNumber) {
-      layoutInfo.push(...this.lefthandFingerPhrase(lefthandFinger, huiNumber, fenNumber));
+    const huiFinger = symbols.find(item => item.type === CharType.HUI_FINGER);
+    const huiNumber = symbols.find(item => item.type === CharType.HUI_NUMBER);
+    const fenNumber = symbols.find(item => item.type === CharType.FEN_NUMBER);
+    if (huiFinger && huiNumber) {
+      layoutInfo.push(...this.huiFingerPhrase(huiFinger, huiNumber, fenNumber));
     }
 
     // 右手指法布局
-    const righthandFinger = symbols.find(item => item.type === 'RIGHT_HAND_FINGER');
-    const xianNumber = symbols.find(item => item.type === 'XIAN_NUMBER');
-    if (righthandFinger && xianNumber) {
-      layoutInfo.push(...this.righthandFingerPhrase(righthandFinger, xianNumber));
+    const xianFinger = symbols.find(item => item.type === CharType.XIAN_FINGER);
+    const xianNumber = symbols.find(item => item.type === CharType.XIAN_NUMBER);
+    if (xianFinger && xianNumber) {
+      layoutInfo.push(...this.xianFingerPhrase(xianFinger, xianNumber));
     }
 
     // 特殊字符布局
-    const specialFinger = symbols.find(item => item.type === 'SPECIAL_FINGER');
+    const specialFinger = symbols.find(item => item.type === CharType.SPECIAL_FINGER);
     if (specialFinger) {
       layoutInfo.push(...this.specialFingerPhrase(specialFinger));
     }
@@ -135,41 +140,54 @@ export class MyLayoutCalculator extends LayoutCalculator {
   // 复合式布局
   complexLayout(symbols) {
     const layoutInfo = [];
-
-    // 撮符号布局
-    const cuoFinger = symbols.find(item => item.type === 'COMPLEX_FINGER');
+  
+    // 撮符号布局 - 使用 layoutType 和 type 双重确认
+    const cuoFinger = symbols.find(item => 
+      item.layoutType === LayoutType.COMPLEX && 
+      item.type === 'COMPLEX_FINGER'
+    );
     if (cuoFinger) {
       layoutInfo.push(...this.cuoPhrase(cuoFinger));
     }
   
-    // 撮左手指法布局
-    const cuoLeftFinger = symbols.find(item => item.type === 'LEFT_HAND_FINGER');
-    const cuoLeftHuiNumber = symbols.find(item => item.type === 'HUI_NUMBER');
-    const cuoLeftFenNumber = symbols.find(item => item.type === 'FEN_NUMBER');
-    const cuoLeftXianNumber = symbols.find(item => item.type === 'XIAN_NUMBER');
-
-    if (cuoLeftFinger && cuoLeftHuiNumber) {
-      layoutInfo.push(...this.cuoLeftPhrase(
-        cuoLeftFinger, 
-        cuoLeftHuiNumber,
-        cuoLeftFenNumber || null, // 允许可选参数
-        cuoLeftXianNumber
-      ));
+    // 撮左手指法布局 - 通过 layoutType 区分左右手
+    const cuoLeftSymbols = symbols.filter(item => item.layoutType === LayoutType.COMPLEX_SUB_1);
+    if (cuoLeftSymbols.length > 0) {
+      const cuoLeftFinger = cuoLeftSymbols.find(item => item.type === CharType.HUI_FINGER);
+      const cuoLeftHuiNumber = cuoLeftSymbols.find(item => item.type === CharType.HUI_NUMBER);
+      const cuoLeftFenNumber = cuoLeftSymbols.find(item => item.type === CharType.FEN_NUMBER);
+      const cuoLeftXianNumber = cuoLeftSymbols.find(item => item.type === CharType.XIAN_NUMBER);
+  
+      if (cuoLeftFinger && cuoLeftHuiNumber) {
+        layoutInfo.push(...this.cuoLeftPhrase(
+          cuoLeftFinger,
+          cuoLeftHuiNumber,
+          cuoLeftFenNumber || null,
+          cuoLeftXianNumber
+        ));
+      }
     }
-    
-    // 撮右手指法布局
-    const cuoRightFinger = symbols.find(item => item.type === 'LEFT_HAND_FINGER'); //只有散音符号，属于左手指法。
-    const cuoRightXianNumber = symbols.find(item => item.type === 'XIAN_NUMBER');
-    if (cuoRightFinger && cuoRightXianNumber) {
-      layoutInfo.push(...this.cuoRightPhrase(
-        cuoRightFinger, 
-        cuoRightXianNumber
-      ));
+  
+    // 撮右手指法布局 - 通过 layoutType 区分左右手
+    const cuoRightSymbols = symbols.filter(item => item.layoutType === LayoutType.COMPLEX_SUB_2);
+    if (cuoRightSymbols.length > 0) {
+      const cuoRightFinger = cuoRightSymbols.find(item => item.type === CharType.HUI_FINGER);
+      const cuoRightHuiNumber = cuoRightSymbols.find(item => item.type === CharType.HUI_NUMBER);
+      const cuoRightFenNumber = cuoRightSymbols.find(item => item.type === CharType.FEN_NUMBER);
+      const cuoRightXianNumber = cuoRightSymbols.find(item => item.type === CharType.XIAN_NUMBER);
+  
+      if (cuoRightFinger && cuoRightXianNumber) {
+        layoutInfo.push(...this.cuoRightPhrase(
+          cuoRightFinger,
+          cuoRightHuiNumber,
+          cuoRightFenNumber || null,
+          cuoRightXianNumber
+        ));
+      }
     }
-
+  
     return layoutInfo;
   }
-
   // 旁注式布局
   sideNoteLayout(symbols) {
     const layoutInfo = [];
@@ -186,81 +204,80 @@ export class MyLayoutCalculator extends LayoutCalculator {
 
   // ==> 基本式布局的具体方法
   
-  // LEFT_HAND_FINGER 和 HUI_NUMBER 和 FEN_NUMBER 的组合布局
-  lefthandFingerPhrase(lefthandFinger, huiNumber, fenNumber) {
-    if (fenNumber) {
-      lefthandFinger.setLayout({ x: 0, y: 0 });
-      huiNumber.setLayout({
-        x: X_POSITION * containerWidth * (1 - HF_SCALE),
-        y: Y_POSITION * containerHeight * (1 - HF_SCALE) - containerHeight * LH_SIZE * HF_SCALE * 0.75,
-        height: containerHeight * HF_SCALE,
-        width: containerWidth * HF_SCALE,
-      });
-      fenNumber.setLayout({
-        x: X_POSITION * containerWidth * (1 - HF_SCALE),
-        y: Y_POSITION * containerHeight * (1 - HF_SCALE),
-        height: containerHeight * HF_SCALE,
-        width: containerWidth * HF_SCALE,
-      });
-    } else {
-      lefthandFinger.setLayout({ x: 0, y: 0 });
-      huiNumber.setLayout({ x: 0, y: 0 });
-    }
-    return [lefthandFinger, huiNumber, fenNumber].filter(Boolean);
-  }
-  // RIGHT_HAND_FINGER 和 XIAN_NUMBER 的组合布局
-  righthandFingerPhrase(righthandFinger, xianNumber) {
-    const yOffsetMap = {
-      擘: 0.3,
-      托: 0.15,
-      抹: 0.4,
-      挑: 0.15,
-      勾: 0.25,
-      剔: 0.35,
-      打: 0.2,
-      摘: 0.3,
-    };
-    righthandFinger.setLayout({ x: 0, y: 0 });
-    xianNumber.setLayout({ x: 0, y: containerHeight * RH_SIZE * yOffsetMap[righthandFinger.char] });
+  // HUI_FINGER 和 HUI_NUMBER 和 FEN_NUMBER 的组合布局
+  huiFingerPhrase(huiFinger, huiNumber, fenNumber) {
 
-    return [righthandFinger, xianNumber];
+    // 根据是否有分数选择适当的徽位符号
+    if (fenNumber) {
+      // 使用带分的徽位符号
+      const huiWithFenChar = `${huiNumber.char}带分`;
+      huiNumber.svgFile = charMap[huiWithFenChar]?.svgFile || huiNumber.svgFile;
+      huiFinger.setLayout({ x: 0, y: 0,  width: CW, height: CH });
+      huiNumber.setLayout({ x: 0, y: 0, width: CW, height: CH });
+      fenNumber.setLayout({ x: 0, y: 0, width: CW, height: CH  });
+    } else {
+      huiFinger.setLayout({ x: 0, y: 0, width: CW, height: CH });
+      huiNumber.setLayout({ x: 0, y: 0, width: CW, height: CH  });
+    }
+    return [huiFinger, huiNumber, fenNumber].filter(Boolean);
+  }
+  // XIAN_FINGER 和 XIAN_NUMBER 的组合布局
+  xianFingerPhrase(xianFinger, xianNumber) {
+    const offsetMap = {
+      擘: { x: 0, y: 0.18 },
+      托: { x: 0, y: 0.09 },
+      抹: { x: 0, y: 0.25 },
+      挑: { x: 0, y: 0.09 },
+      勾: { x: 0, y: 0.15 },
+      剔: { x: 0, y: 0.21 },
+      打: { x: 0, y: 0.12 },
+      摘: { x: 0, y: 0.18 }
+    };
+    const offset = offsetMap[xianFinger.char] || { x: 0, y: 0 };
+    xianFinger.setLayout({ x: 0, y: 0, width: CW, height: CH });
+    xianNumber.setLayout({ x: CH * offset.x, y: CH * offset.y, width: CW, height: CH });
+
+    return [xianFinger, xianNumber];
   }
   // SPECIAL_FINGER 的布局
   specialFingerPhrase(specialFinger) {
-    specialFinger.setLayout({ x: 0, y: 0 });
+    specialFinger.setLayout({ x: 0, y: 0, width: CW, height: CH });
     return [specialFinger];
   }
 
   // ==> 复合式布局的具体方法
   // 撮符号
   cuoPhrase(cuoFinger) {
-    cuoFinger.setLayout({ x: 0, y: 0 });
+    cuoFinger.setLayout({ x: 0, y: 0, width: CW, height: CH });
     return [cuoFinger];
   }
   // 撮左边
   cuoLeftPhrase(cuoLeftFinger, cuoLeftHuiNumber, cuoLeftFenNumber, cuoLeftXianNumber) {
-      // 防御性检查（保持原名）
-    if (!cuoLeftFinger || !cuoLeftHuiNumber) {
-      console.warn('cuoLeftPhrase: 缺少必要参数');
-      return [];
+    if (cuoLeftFenNumber) {
+      cuoLeftFinger.setLayout({ x: -0.24 * CW, y: 0.26 * CW, width: CW, height: CH });
+      cuoLeftXianNumber.setLayout({ x: -0.048 * CW, y: 0.26 * CW, width: CW, height: CH });
+      cuoLeftHuiNumber.setLayout({ x: 0, y: 0, width: CW, height: CH });
+      cuoLeftFenNumber.setLayout({x: 0, y: 0, width: CW, height: CH });
+    } else {
+      cuoLeftFinger.setLayout({ x: -0.24 * CW, y: 0.26 * CW, width: CW, height: CH });
+      cuoLeftXianNumber.setLayout({ x: -0.24 * CW, y: 0.26 * CW, width: CW, height: CH });
+      cuoLeftHuiNumber.setLayout({ x: -0.24 * CW, y: 0.26 * CW, width: CW, height: CH });
     }
-
-  const result = [];
-    // 实现撮左边布局逻辑
-      cuoLeftFinger.setLayout({ x: 0, y: 0, height:containerHeight, width: containerWidth });
-      cuoLeftXianNumber.setLayout({ x: 0, y: 0, height:containerHeight, width: containerWidth});
-      cuoLeftHuiNumber.setLayout({ x: 0, y: 0, height:containerHeight, width: containerWidth });
-
     return [cuoLeftFinger, cuoLeftHuiNumber, cuoLeftFenNumber, cuoLeftXianNumber].filter(Boolean);
   }
   // 撮右边
-  cuoRightPhrase(cuoRightFinger, cuoRightXianNumber) {
-    // 实现撮右边布局逻辑
-    cuoRightFinger.setLayout({ x: 0, y: 0 });
-    cuoRightXianNumber.setLayout({ x: 0, y: 0 });
-    return [cuoRightFinger, cuoRightXianNumber];
-  }
-
+  cuoRightPhrase(cuoRightFinger, cuoRightHuiNumber, cuoRightFenNumber, cuoRightXianNumber) {
+    if (cuoRightFenNumber) {
+      cuoRightFinger.setLayout({ x: -0.24 * CW, y: 0.26 * CW, width: CW, height: CH });
+      cuoRightXianNumber.setLayout({ x: -0.048 * CW, y: 0.26 * CW, width: CW, height: CH });
+      cuoRightHuiNumber.setLayout({ x: 0, y: 0, width: CW, height: CH });
+      cuoRightFenNumber.setLayout({x: 0, y: 0, width: CW, height: CH });
+    } else {
+      cuoRightFinger.setLayout({ x: 0.24 * CW, y: 0.26 * CW, width: CW, height: CH });
+      cuoRightXianNumber.setLayout({ x: 0.24 * CW, y: 0.26 * CW, width: CW, height: CH });
+      cuoRightHuiNumber.setLayout({ x: 0.24 * CW, y: 0.26 * CW, width: CW, height: CH });
+    }
+    return [cuoRightFinger, cuoRightHuiNumber, cuoRightFenNumber, cuoRightXianNumber].filter(Boolean);  }
 
   // ==> 旁注式布局的具体方法
   sideNotePhrase(moveFinger, modifier) {
